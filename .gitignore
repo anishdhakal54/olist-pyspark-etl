@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+
+data/raw/
+data/bronze/
+data/silver/
+data/gold/
+
+spark-warehouse/
+metastore_db/
+derby.log
+
+*.pyc
+*.crc
+.DS_Store
