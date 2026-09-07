@@ -1,6 +1,6 @@
 from pyspark.sql.types import ( StructType,StructField,StringType,IntegerType,DecimalType,TimestampType,DoubleType)
 import logging
-
+from config import RAW_PATH
 
 order_schema = StructType([
 StructField("order_id",StringType()),
@@ -86,6 +86,7 @@ StructField("product_category_name",StringType()),
 StructField("product_category_name_english",StringType())
 ])
 
+
 def read_csv(spark, path, schema, multiline=False):
 
     reader = spark.read.format("csv") \
@@ -100,11 +101,11 @@ def read_csv(spark, path, schema, multiline=False):
     return df
 
 def ingest_olist_data(spark,raw_path_to_file,file_schema):
-    raw_path="../data/raw/"
+
     try:
      logger.info(f"Reading file :{ raw_path_to_file}")
 
-     df = read_csv(spark=spark,path=f"{raw_path}/{raw_path_to_file}",schema=file_schema,multiline=False)
+     df = read_csv(spark=spark,path=str(RAW_PATH/raw_path_to_file),schema=file_schema,multiline=False)
      logger.info(f"Successfully read file: {raw_path_to_file}")
      return df
     except Exception as e:

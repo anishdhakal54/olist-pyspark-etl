@@ -13,3 +13,8 @@ def build_order_curated(orders_df,order_items_agg_df,payment_agg_df,customer_df)
     curated_df = curated_df.join(payment_agg_df,on="order_id",how="left")
     curated_df = curated_df.join(customer_df,on="customer_id",how="left")
     return curated_df
+
+def builder_order_items_curated(orders_items_df,products_df,sellers_df):
+    order_items_curated_df = orders_items_df.join(products_df,on="product_id",how="left")
+    order_items_curated_df=order_items_curated_df.join(sellers_df,on="seller_id",how="left")
+    return order_items_curated_df

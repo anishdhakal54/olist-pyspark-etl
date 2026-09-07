@@ -6,6 +6,7 @@ data/raw/
 data/bronze/
 data/silver/
 data/gold/
+data/curated/
 
 spark-warehouse/
 metastore_db/
