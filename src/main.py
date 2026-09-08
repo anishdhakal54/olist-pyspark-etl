@@ -31,12 +31,8 @@ def main():
                 )
             
             except Exception as e:
-                print(f"Failed to ingest {config['filename']}: {e}")
-                raise
-
-        for name, df in dataframe.items():
-            print(f"{name}: {df.count()}")
-
+                logger.error(f"Failed to ingest {config['filename']}: {e}")
+                raise      
 
         invalid_purchase_approval = date_validation(
             df=dataframe["orders"],
@@ -81,7 +77,7 @@ def main():
         curate_orders = build_order_curated(order_transformed,order_items_agg_df=order_items_agg,payment_agg_df=payment_agg,customer_df=dataframe["customers"])
 
         curate_orders_items = builder_order_items_curated(orders_items_df=dataframe['order_items'],products_df=dataframe['products'],sellers_df=dataframe["sellers"])
-        print(curate_orders_items.count())
+       
 
         validate_duplicates(
             curate_orders,
@@ -96,13 +92,7 @@ def main():
             curate_orders_items,
             output_location=output_path / "order_items"
         )
-
-        order_parquet = spark.read.format("parquet").load(str(output_path/"orders"))
-        order_parquet.printSchema()
-
-
-        order_item_parquet = spark.read.format("parquet").load(str(output_path/"order_items"))
-        order_item_parquet.printSchema()
+        logger.info("ETL pipeline completed successfully")
 
     except Exception as e:
         logger.error(f"Pipeline failed: {e}")
