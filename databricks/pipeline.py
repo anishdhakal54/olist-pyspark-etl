@@ -4,7 +4,7 @@
 
 # Run Bronze
 dbutils.notebook.run(
-    "./bronze",
+    "./01_bronze_ingestion",
     0,
     {
         "storage_account": dbutils.widgets.get("storage_account"),
@@ -14,7 +14,7 @@ dbutils.notebook.run(
 
 # Run Silver
 dbutils.notebook.run(
-    "./silver",
+    "./02_silver_processing",
     0,
     {
         "storage_account": dbutils.widgets.get("storage_account"),
@@ -24,7 +24,7 @@ dbutils.notebook.run(
 
 # Run Gold
 dbutils.notebook.run(
-    "./gold",
+    "./03_gold",
     0,
     {
         "storage_account": dbutils.widgets.get("storage_account"),
