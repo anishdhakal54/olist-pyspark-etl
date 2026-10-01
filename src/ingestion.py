@@ -1,6 +1,6 @@
 from pyspark.sql.types import ( StructType,StructField,StringType,IntegerType,DecimalType,TimestampType,DoubleType)
 import logging
-from config import RAW_PATH
+from src.config import RAW_PATH
 
 order_schema = StructType([
 StructField("order_id",StringType()),

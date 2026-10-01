@@ -8,10 +8,13 @@ data/silver/
 data/gold/
 data/curated/
 
+
+
 spark-warehouse/
 metastore_db/
 derby.log
 
 *.pyc
 *.crc
-.DS_Store
+.DS_Store.venv-dbt/
+airflow/logs/
