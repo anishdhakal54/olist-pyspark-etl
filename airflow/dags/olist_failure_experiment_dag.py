@@ -1,10 +1,11 @@
 from airflow import DAG
 from airflow.providers.standard.operators.bash import BashOperator
 from datetime import datetime, timedelta
+from src.monitoring import alert_on_failure
 
 default_args={
     "retries":2,
-    "retry_delays":timedelta(seconds=10)
+    "retry_delay":timedelta(seconds=10),
 }
 
 with DAG(
@@ -20,9 +21,10 @@ with DAG(
     )
     silver  = BashOperator(
         task_id="silver_process",
-        bash_command='cd /opt/olist && python -m pipeline.silver',
-       
-    )
+        bash_command="cd /opt/olist && python -m pipeline.silver",
+        on_failure_callback=alert_on_failure,
+
+)
     gold = BashOperator(
         task_id="gold_curation",
         bash_command="cd /opt/olist && python -m pipeline.gold"
