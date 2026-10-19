@@ -5,7 +5,7 @@ on:
 
 
 jobs:
-  test:
+  pytest:
     runs-on: ubuntu-latest
 
     steps:
@@ -29,3 +29,25 @@ jobs:
       - name: Run tests
         run: python -m pytest -q tests/test_transformation.py tests/test_validation.py
 
+
+  airflow-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      
+      - name: Install Airflow
+        run: |
+          pip install "apache-airflow==3.3.2" \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.2/constraints-3.13.txt"
+      
+     
+
+      - name: Run Airflow DAG tests
+        run: python -m pytest -q tests/test_olist_dag.py
