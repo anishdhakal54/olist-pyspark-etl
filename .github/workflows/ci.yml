@@ -3,6 +3,10 @@ name: Olist CI
 on:
   push:
 
+  pull_request:
+    branches:
+      - main
+
 
 jobs:
   pytest:
@@ -57,3 +61,7 @@ jobs:
       
       - name: Run Airflow DAG tests
         run: python -m pytest -q tests/test_olist_dag.py
+  
+
+  
+  
