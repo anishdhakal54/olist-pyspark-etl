@@ -1,20 +1,104 @@
+
 # Olist E-commerce Data Engineering Pipeline
+
+An end-to-end data engineering portfolio project built using **Python, PySpark, Apache Airflow, Docker, Azure Databricks, Delta Lake, pytest, and GitHub Actions**.
+
+The project demonstrates how to design, build, orchestrate, test, and prepare data pipelines for deployment using modern data engineering practices.
 
 ## Project Overview
 
-This project implements an end-to-end data engineering pipeline using the Olist Brazilian e-commerce dataset.
+This project processes the Olist Brazilian e-commerce dataset to build reliable, reusable, and analytics-ready data pipelines.
 
-The project began as a local modular PySpark ETL pipeline and was subsequently extended to Azure to demonstrate a cloud-based lakehouse architecture using Azure Data Lake Storage Gen2, Azure Databricks, PySpark, and Delta Lake.
+The project includes two complementary implementations:
 
-The pipeline ingests multiple related Olist datasets, performs data-quality and referential-integrity checks, transforms and aggregates the data, and organizes the cloud implementation into Bronze, Silver, and Gold layers.
+**1. Local PySpark Pipeline**
 
-The Azure implementation also introduces Delta Lake capabilities including MERGE-based upserts, schema enforcement and evolution, table history, time travel, restore, Change Data Feed (CDF), and incremental processing.
+A modular ETL application that ingests, validates, transforms, aggregates, and writes e-commerce data using PySpark and Parquet.
+
+The local implementation includes:
+
+- Modular Python pipeline components
+- Explicit Spark schemas
+- Data quality and referential integrity validation
+- Reusable PySpark transformations
+- Bronze-layer ingestion
+- Curated analytical datasets
+- Apache Airflow orchestration
+- Docker-based Airflow environment
+- Automated tests using pytest
+- GitHub Actions CI/CD
+
+**2. Azure Lakehouse Pipeline**
+
+A cloud-based data engineering implementation using:
+
+- Azure Data Lake Storage Gen2
+- Azure Databricks
+- PySpark and Spark SQL
+- Delta Lake
+- Bronze, Silver, and Gold architecture
+- Delta MERGE operations
+- Schema enforcement and evolution
+- Delta table history and time travel
+- Restore operations
+- Change Data Feed (CDF)
+- Incremental Gold processing
+
+The Azure implementation demonstrates lakehouse processing and incremental data engineering patterns. The local implementation focuses on modularity, orchestration, testing, and deployment engineering.
+
+**Current deployment status:** GitHub Actions CI is operational, and CD includes manual production approval and commit verification. The production deployment action is currently simulated; automated deployment to Azure has not yet been implemented.
 
 ---
 
 ## Architecture
 
-The current cloud pipeline follows a Medallion Architecture:
+### Local Pipeline Architecture
+
+```text
+Olist CSV Dataset
+        |
+        v
++--------------------------+
+|     Data Ingestion       |
+|     PySpark              |
++------------+-------------+
+             |
+             v
++--------------------------+
+|      Bronze Layer        |
+|      Parquet Storage     |
++------------+-------------+
+             |
+             v
++--------------------------+
+|    Data Validation       |
+|    Quality Checks        |
++------------+-------------+
+             |
+             v
++--------------------------+
+|    Transformations       |
+|    Joins / Enrichment    |
++------------+-------------+
+             |
+             v
++--------------------------+
+|    Aggregation           |
+|    Curated Datasets      |
++------------+-------------+
+             |
+             v
++--------------------------+
+|    Parquet Outputs       |
++--------------------------+
+
+Orchestration: Apache Airflow
+Execution: Docker / Local PySpark
+Testing: pytest
+CI/CD: GitHub Actions
+```
+
+### Azure Lakehouse Architecture
 
 ```text
 Olist CSV Dataset
@@ -23,640 +107,858 @@ Olist CSV Dataset
 Azure Data Lake Storage Gen2
         |
         v
-+-----------------------+
-|        BRONZE         |
-| Raw Data              |
-| Ingestion Metadata    |
-+-----------+-----------+
-            |
-            | PySpark
-            v
-+-----------------------+
-|        SILVER         |
-| Cleaned Data          |
-| Validated Data        |
-| Curated Delta Tables  |
-+-----------+-----------+
-            |
-            | Delta Change Data Feed
-            | Incremental Processing
-            v
-+-----------------------+
-|         GOLD          |
-| Business Metrics      |
-| Analytical Aggregates |
-+-----------------------+
++--------------------------+
+|          BRONZE          |
+| Raw Data                 |
+| Ingestion Metadata       |
++------------+-------------+
+             |
+             | PySpark
+             v
++--------------------------+
+|          SILVER          |
+| Cleaned Data             |
+| Validated Data           |
+| Delta Tables             |
++------------+-------------+
+             |
+             | Change Data Feed
+             | Incremental Processing
+             v
++--------------------------+
+|           GOLD           |
+| Business Metrics         |
+| Analytical Aggregates    |
+| Delta MERGE              |
++--------------------------+
 ```
 
-The project retains the original local PySpark implementation alongside the Azure implementation, demonstrating the progression from a local ETL application to a cloud-based data engineering pipeline.
+The two implementations demonstrate both local pipeline engineering and cloud lakehouse development.
 
 ---
 
-## Technologies Used
+## Technology Stack
 
-### Data Processing
-
-* Python
-* PySpark
-* Spark SQL
-* Spark DataFrame API
-
-### Azure
-
-* Microsoft Azure
-* Azure Data Lake Storage Gen2
-* Azure Databricks
-* Managed Identity
-
-### Data Storage
-
-* Delta Lake
-* Parquet
-
-### Development
-
-* Git
-* GitHub
-* Jupyter Notebook
-* Linux
+| Category | Technologies |
+|---|---|
+| Programming | Python, SQL |
+| Data Processing | PySpark, Spark SQL, Spark DataFrame API |
+| Cloud | Microsoft Azure, Azure Databricks, ADLS Gen2 |
+| Storage | Parquet, Delta Lake |
+| Orchestration | Apache Airflow |
+| Containers | Docker, Docker Compose |
+| Testing | pytest, PySpark testing |
+| CI/CD | GitHub Actions |
+| Version Control | Git, GitHub |
+| Development | Ubuntu Linux, Jupyter Notebook |
+| Airflow Infrastructure | PostgreSQL, Redis |
 
 ---
 
 ## Dataset
 
-The project uses the Olist Brazilian e-commerce dataset.
+The project uses the **Olist Brazilian E-Commerce Public Dataset**, which contains information about orders, customers, products, sellers, payments, reviews, and deliveries.
 
-The pipeline works with nine related datasets:
+Nine datasets are used:
 
-* Orders
-* Customers
-* Order Items
-* Order Payments
-* Order Reviews
-* Products
-* Sellers
-* Geolocation
-* Product Category Name Translation
+| Dataset | Records |
+|---|---:|
+| Orders | 99,441 |
+| Customers | 99,441 |
+| Order Items | 112,650 |
+| Order Payments | 103,886 |
+| Order Reviews | 104,162 |
+| Products | 32,951 |
+| Sellers | 3,095 |
+| Geolocation | 1,000,163 |
+| Product Category Translation | 71 |
 
-These datasets represent different parts of an e-commerce system and provide an opportunity to work with multiple grains, one-to-many relationships, data-quality problems, joins, aggregations, and incremental processing.
+The datasets provide realistic examples of:
 
----
-
-# Local PySpark Pipeline
-
-The first implementation of the project was built locally as a modular PySpark ETL application.
-
-The local pipeline follows:
-
-```text
-Raw CSV Files
-      |
-      v
-Ingestion
-      |
-      v
-Data Quality Validation
-      |
-      v
-Transformations
-      |
-      v
-Aggregations
-      |
-      v
-Curation
-      |
-      v
-Output Validation
-      |
-      v
-Curated Parquet Files
-```
-
-The local implementation separates ingestion, validation, transformation, curation, writing, configuration, and orchestration into reusable Python modules.
+- One-to-many relationships
+- Referential integrity
+- Data quality anomalies
+- Date and timestamp transformations
+- Joins and aggregations
+- Dataset grain management
+- Incremental processing
 
 ---
 
-## Local Project Structure
+## Project Structure
+
+The repository contains modular PySpark code, Airflow configuration, automated tests, and GitHub Actions workflows.
 
 ```text
 olist-pyspark-etl/
-│
+|
+├── .github/
+│   └── workflows/
+│       ├── ci.yml
+│       └── cd.yml
+|
+├── airflow/
+│   └── dags/
+│       ├── olist_local_pipeline_dag.py
+│       └── olist_pipeline_experiment_dag.py
+|
 ├── data/
 │   ├── raw/
+│   ├── bronze/
 │   └── curated/
-│       ├── orders/
-│       └── order_items/
-│
+|
 ├── notebooks/
 │   └── 01_data_ingestion.ipynb
-│
+|
 ├── src/
 │   ├── config.py
 │   ├── ingestion.py
+│   ├── bronze.py
 │   ├── validation.py
 │   ├── transformation.py
 │   ├── curation.py
 │   ├── writer.py
 │   └── main.py
-│
+|
+├── tests/
+├── requirements.txt
 ├── .gitignore
 └── README.md
 ```
 
+The tree is a simplified representation of the project. Docker configuration, supporting files, and test modules are maintained in their respective directories.
+
 ---
 
-# Pipeline Components
+# Local PySpark Pipeline
 
 ## 1. Data Ingestion
 
-The ingestion layer reads the Olist CSV datasets using explicitly defined Spark schemas.
+The ingestion layer reads source CSV files using PySpark.
 
-Reusable ingestion logic keeps data loading separate from dataset-specific transformations and validation.
+Explicit schemas are used to control data types and reduce unexpected behaviour caused by automatic schema inference.
 
-The cloud version stores source data in Azure Data Lake Storage Gen2 before processing it with Azure Databricks.
+The ingestion logic is separated from transformations and validation so that components can be reused and tested independently.
 
-The Bronze layer preserves the ingested data while also recording ingestion metadata to improve traceability.
+## 2. Bronze Layer
 
----
+The local Bronze layer preserves ingested data in Parquet format.
 
-## 2. Data Quality Validation
+Bronze processing is implemented as a reusable pipeline component.
 
-Reusable PySpark validation logic is used to identify structural problems and source-data anomalies.
+The purpose of Bronze is to maintain source-level data that can be used for downstream transformations and validation.
 
-Validation includes:
+## 3. Data Quality Validation
 
-* Duplicate business-key detection
-* Null analysis
-* Date consistency validation
-* Allowed-value validation
-* Referential-integrity validation using left anti joins
+Data quality is an important part of the pipeline.
 
-Examples of referential-integrity relationships include:
+Implemented validation concepts include:
+
+- Duplicate business-key checks
+- Null analysis
+- Timestamp consistency
+- Referential integrity
+- Invalid business values
+- Structural validation
+
+### Referential Integrity
+
+PySpark left anti joins are used to identify missing relationships between datasets.
+
+Examples:
 
 ```text
-orders.customer_id       → customers.customer_id
-order_items.order_id     → orders.order_id
-order_items.product_id   → products.product_id
-order_items.seller_id    → sellers.seller_id
+orders.customer_id
+        |
+        v
+customers.customer_id
+
+order_items.order_id
+        |
+        v
+orders.order_id
 ```
 
-Critical structural problems can stop pipeline processing rather than allowing invalid records to silently contaminate downstream datasets.
+During validation, the following relationships were checked:
 
-Non-critical source anomalies can instead be retained and logged for investigation.
+- Orders without matching customers: 0
+- Order items without matching orders: 0
 
-For example, the Olist source data contains records where the customer delivery timestamp occurs before the carrier delivery timestamp. These records are identified as data-quality warnings rather than silently modified.
+### Source Data Anomalies
+
+The dataset includes real-world inconsistencies.
+
+Examples identified during analysis include:
+
+- Missing approval timestamps
+- Missing delivery timestamps
+- Delivery timestamps occurring before carrier timestamps
+- Purchase timestamps occurring after approval timestamps
+
+The pipeline distinguishes between critical structural problems and source-data anomalies that should be investigated.
 
 ---
 
-## 3. Transformations
+## 4. Data Transformations
 
-PySpark transformations enrich the source data with attributes useful for downstream analytics.
-
-Transformations include:
+The transformation layer uses reusable PySpark functions.
 
 ### Delivery Duration
 
-Calculates the number of days between purchase and customer delivery.
+Calculates the number of days between order purchase and customer delivery.
 
-```text
-order_purchase_timestamp
-        +
-order_delivered_customer_date
-        |
-        v
-delivery_days
+```python
+delivery_days = datediff(
+    col("order_delivered_customer_date"),
+    col("order_purchase_timestamp")
+)
 ```
 
-### Purchase Date Attributes
+### Date Attributes
 
-Time-based attributes are extracted from purchase timestamps to support downstream aggregation and analysis.
+Date-based attributes are extracted for downstream analytics.
 
 Examples include:
 
-* Purchase year
-* Purchase month
-* Order date
+- Purchase year
+- Purchase month
+- Order date
 
-### Late Delivery Flag
+### Late Delivery Indicator
 
-An `is_late` indicator compares the actual customer delivery date against the estimated delivery date.
-
----
-
-## 4. Aggregations
-
-Lower-grain datasets are aggregated before being joined to order-level data.
-
-This prevents one-to-many relationships from unintentionally multiplying order records.
-
-### Order Item Aggregation
-
-Order items are grouped by `order_id` to calculate:
-
-* Item count
-* Total item price
-* Total freight value
-
-### Payment Aggregation
-
-Payments are grouped by `order_id` to calculate:
-
-* Total payment value
-* Payment count
-
-The aggregated datasets can then safely be joined to orders while preserving the intended order-level grain.
-
----
-
-# Medallion Architecture
-
-## Bronze Layer
-
-The Bronze layer represents the raw ingestion layer.
-
-Its purpose is to preserve source data with minimal transformation while maintaining information about how and when the data entered the pipeline.
-
-Bronze ingestion includes metadata to support traceability and future pipeline operations.
-
-```text
-ADLS Raw Data
-      |
-      v
-Bronze
-Raw + Metadata
-```
-
-The Bronze layer provides the starting point for downstream validation and transformation.
-
----
-
-## Silver Layer
-
-The Silver layer contains cleaned, validated, enriched, and joined data suitable for downstream processing.
-
-The primary Silver orders dataset combines:
-
-* Order information
-* Customer information
-* Order-item aggregates
-* Payment aggregates
-
-Its grain is:
-
-```text
-one row per order
-```
-
-Before data reaches downstream analytical processing, the pipeline performs data-quality checks to verify assumptions such as uniqueness, valid status values, timestamp consistency, and referential integrity.
-
-Silver data is stored using Delta Lake.
-
----
-
-# Delta Lake
-
-Delta Lake provides reliability and transactional capabilities on top of the data lake.
-
-The project implements several Delta Lake features.
-
-## MERGE / Upserts
-
-Instead of rewriting the entire Silver dataset whenever records change, Delta `MERGE` operations support:
-
-* Updating existing records
-* Inserting new records
+The `is_late` column identifies orders delivered after their estimated delivery date.
 
 Conceptually:
 
 ```text
-Incoming Data
-      |
-      v
-Compare with Silver
-      |
-      +---- existing order ----> UPDATE
-      |
-      +---- new order ---------> INSERT
+Actual delivery > Estimated delivery
+                  |
+                  v
+              is_late = 1
+
+Actual delivery <= Estimated delivery
+                  |
+                  v
+              is_late = 0
 ```
 
-This provides a foundation for incremental data processing.
+The transformation functions are independently testable.
 
 ---
+
+## 5. Aggregations and Curation
+
+Order items and payments contain multiple records for some orders.
+
+Joining these datasets directly to orders can multiply rows and produce incorrect business metrics.
+
+To prevent this, related datasets are aggregated to the intended grain before joining.
+
+### Order Item Aggregation
+
+Metrics include:
+
+- Item count
+- Total item price
+- Total freight value
+
+### Payment Aggregation
+
+Metrics include:
+
+- Total payment value
+- Payment count
+
+The curated output maintains the intended order-level structure.
+
+---
+
+# Apache Airflow Orchestration
+
+Apache Airflow is used to orchestrate the local PySpark pipeline.
+
+Airflow runs inside a Docker-based environment with supporting services including PostgreSQL and Redis.
+
+The implementation includes:
+
+- Airflow DAG definitions
+- Task execution using BashOperator
+- Local PySpark pipeline invocation
+- Task execution monitoring
+- DAG validation tests
+
+## Pipeline DAG
+
+The local pipeline DAG executes the modular PySpark application.
+
+Example task execution:
+
+```bash
+cd /opt/olist && python src/main.py
+```
+
+This allows Airflow to coordinate pipeline execution instead of requiring the application to be started manually.
+
+### Why Airflow?
+
+Airflow introduces orchestration concepts used in production data engineering systems:
+
+- Scheduling
+- Task dependencies
+- Execution monitoring
+- Failure visibility
+- Workflow automation
+
+The current implementation demonstrates local orchestration rather than managed cloud Airflow deployment.
+
+---
+
+# Automated Testing
+
+Automated testing is implemented using **pytest** and PySpark.
+
+The project tests transformation behaviour using small, controlled input datasets.
+
+Examples include:
+
+- Delivery duration calculations
+- Purchase date attributes
+- Late delivery classification
+- Edge cases in transformation logic
+- Airflow DAG validation
+
+## Testing Approach
+
+Tests follow the **Arrange → Act → Assert** pattern.
+
+```text
+ARRANGE
+Create sample Spark DataFrame
+        |
+        v
+ACT
+Execute transformation function
+        |
+        v
+ASSERT
+Compare actual and expected values
+```
+
+This helps ensure that changes to transformation code do not silently introduce incorrect results.
+
+## Running Tests
+
+From the project root:
+
+```bash
+pytest
+```
+
+The project currently includes automated PySpark and Airflow-related tests executed through GitHub Actions.
+
+---
+
+# CI/CD with GitHub Actions
+
+The project includes two GitHub Actions workflows:
+
+```text
+.github/workflows/ci.yml
+.github/workflows/cd.yml
+```
+
+## Continuous Integration (CI)
+
+The `Olist CI` workflow runs automated checks when code is pushed or a Pull Request targets `main`.
+
+It includes two jobs:
+
+### PySpark Tests
+
+```text
+pytest
+```
+
+Executes automated tests for pipeline transformations and related Python functionality.
+
+### Airflow Tests
+
+```text
+airflow-tests
+```
+
+Validates Airflow-related functionality, including DAG tests.
+
+### CI Flow
+
+```text
+Developer creates feature branch
+              |
+              v
+       Code changes
+              |
+              v
+        Push to GitHub
+              |
+              v
+        Pull Request
+              |
+              v
+       GitHub Actions CI
+              |
+       +------+------+
+       |             |
+       v             v
+    pytest      airflow-tests
+       |             |
+       +------+------+
+              |
+              v
+        Checks pass
+              |
+              v
+         Merge to main
+```
+
+This provides automated validation before changes are integrated into the main branch.
+
+---
+
+## Branch Protection
+
+The `main` branch is protected using GitHub repository rules.
+
+The project uses:
+
+- Pull Requests for changes to `main`
+- Required CI status checks
+- Up-to-date branch requirements
+- Restrictions on force pushes
+
+Required checks include:
+
+```text
+pytest
+airflow-tests
+```
+
+This reduces the risk of untested code being merged into the main branch.
+
+---
+
+## Continuous Delivery (CD)
+
+The `Olist CD` workflow is triggered after the `Olist CI` workflow completes successfully on `main`.
+
+The CD workflow includes:
+
+1. CI success verification
+2. Repository-origin verification
+3. Main-branch verification
+4. Deployment preparation
+5. Manual production approval
+6. Checkout of the tested commit
+7. Commit SHA verification
+8. Simulated production deployment
+
+### CD Architecture
+
+```text
+       Code merged into main
+                 |
+                 v
+             Olist CI
+                 |
+                 v
+          CI successful?
+                 |
+          +------+------+
+          |             |
+         NO            YES
+          |             |
+          v             v
+        STOP       Olist CD
+                        |
+                        v
+               Validate CI source
+                        |
+                        v
+               Prepare deployment
+                        |
+                        v
+               Production approval
+                        |
+                        v
+               Checkout tested SHA
+                        |
+                        v
+               Verify commit SHA
+                        |
+                        v
+               Simulated deployment
+```
+
+---
+
+## Deployment Security
+
+The CD workflow checks that the triggering CI run:
+
+- Completed successfully
+- Originated from the expected GitHub repository
+- Ran against the `main` branch
+
+Example condition:
+
+```yaml
+if: >-
+  ${{
+    github.event.workflow_run.conclusion == 'success' &&
+    github.event.workflow_run.head_repository.full_name == github.repository &&
+    github.event.workflow_run.head_branch == 'main'
+  }}
+```
+
+All three conditions must be true before deployment preparation can proceed.
+
+---
+
+## Manual Production Approval
+
+GitHub Environments are used to protect the deployment stage.
+
+The `production` environment requires manual approval before the deployment job starts.
+
+This provides a controlled deployment gate.
+
+```text
+CI successful
+      |
+      v
+CD preparation
+      |
+      v
+Waiting for approval
+      |
+      v
+Manual approval
+      |
+      v
+Deployment job
+```
+
+---
+
+## Exact Commit Verification
+
+A key feature of the CD workflow is deploying the exact commit associated with the successful CI run.
+
+The deployment job checks out:
+
+```yaml
+- name: Checkout tested commit
+  uses: actions/checkout@v4
+  with:
+    ref: ${{ github.event.workflow_run.head_sha }}
+```
+
+It then compares the checked-out commit SHA with the expected CI commit SHA.
+
+```bash
+actual=$(git rev-parse HEAD)
+expected="$EXPECTED_SHA"
+
+if [[ "$actual" != "$expected" ]]; then
+  echo "ERROR: Commit SHA mismatch!"
+  exit 1
+fi
+
+echo "Commit verification passed!"
+```
+
+### Verified Execution
+
+A successful GitHub Actions run produced:
+
+```text
+Actual commit:
+e7affc6cdd68b43789861d80b70eb27ca51673de
+
+Expected commit:
+e7affc6cdd68b43789861d80b70eb27ca51673de
+
+Commit verification passed!
+```
+
+This confirms that the deployment job checked out the commit associated with the triggering successful CI run.
+
+### Current CD Limitation
+
+The deployment currently executes a simulation:
+
+```bash
+echo "Deploying Olist pipeline to production."
+```
+
+Actual deployment to Azure Databricks or another production environment is planned.
+
+The workflow therefore demonstrates deployment controls and commit verification, but not a completed cloud release process.
+
+---
+
+# Azure Databricks Lakehouse Implementation
+
+The Azure implementation uses a Medallion Architecture consisting of Bronze, Silver, and Gold layers.
+
+## Bronze Layer
+
+The Bronze layer ingests source data from Azure Data Lake Storage Gen2.
+
+Ingestion metadata includes:
+
+- `_ingestion_timestamp`
+- `_source_file`
+
+The layer preserves raw source information for traceability and downstream processing.
+
+## Silver Layer
+
+The Silver layer performs data cleaning, validation, enrichment, and joins.
+
+The main Silver orders dataset combines:
+
+- Order information
+- Customer information
+- Order item aggregates
+- Payment aggregates
+
+The intended grain is:
+
+```text
+One row per order
+```
+
+The Silver implementation uses Delta Lake and supports Change Data Feed.
+
+## Gold Layer
+
+The Gold layer provides analytical aggregates for downstream reporting.
+
+One implemented Gold dataset contains daily delivered-order metrics.
+
+Metrics include:
+
+- Total delivered orders
+- Total delivered value
+- Average delivered order value
+
+The intended grain is:
+
+```text
+One row per order date
+```
+
+Incremental Gold processing uses changes from Silver to update analytical metrics.
+
+---
+
+# Delta Lake Features
+
+The Azure implementation explores Delta Lake functionality commonly used in lakehouse architectures.
+
+## MERGE Operations
+
+Delta `MERGE` supports updating existing records and inserting new records.
+
+```text
+Incoming records
+        |
+        v
+Compare with Delta table
+        |
+        +---- Existing key ---> UPDATE
+        |
+        +---- New key --------> INSERT
+```
+
+This provides a foundation for incremental processing.
 
 ## Schema Enforcement
 
 Delta Lake validates incoming data against the target table schema.
 
-Incompatible writes can be rejected rather than silently introducing unexpected structural changes.
-
-This protects downstream consumers from accidental schema changes.
-
----
+Incompatible changes can be rejected to protect downstream consumers.
 
 ## Schema Evolution
 
-When a legitimate schema change is required, Delta Lake can evolve the table schema.
+Controlled schema evolution allows approved structural changes.
 
-Schema evolution was tested by introducing an additional column and allowing the Delta table to update its schema explicitly.
-
-This demonstrates the difference between:
-
-```text
-Unexpected schema change
-        ↓
-Rejected
-
-Approved schema evolution
-        ↓
-Accepted
-```
-
----
+The project tested schema evolution by introducing an additional column.
 
 ## Delta Table History
 
-Delta Lake maintains transaction history for table operations.
+Delta Lake records transaction history for operations such as:
 
-The project uses Delta history to inspect previous table versions and operations such as:
+- WRITE
+- MERGE
+- RESTORE
 
-* WRITE
-* MERGE
-* RESTORE
-
-This provides visibility into how a table has changed over time.
-
----
+This makes it possible to inspect changes across table versions.
 
 ## Time Travel
 
-Historical Delta table versions can be queried without manually maintaining separate copies of every dataset.
+Historical Delta table versions can be queried using versions or timestamps.
 
-Historical data can be accessed using:
-
-* Version numbers
-* Timestamps
-
-Conceptually:
-
-```text
-Current Silver Table
-       |
-       +---- Version N
-       +---- Version N-1
-       +---- Version N-2
-```
-
-This is useful for debugging, auditing, and investigating data changes.
-
----
+This supports debugging, auditing, and data investigation.
 
 ## Restore
 
-Delta tables can be restored to a previous valid version.
+Delta tables can be restored to earlier versions.
 
-The project demonstrates restoring Silver data after modifying a record and confirming that its previous value is recovered.
+The project tested modifying a record and restoring a previous table version.
 
-This provides an additional recovery mechanism when incorrect data reaches a Delta table.
+## Change Data Feed
 
----
+Change Data Feed identifies records modified between Delta table versions.
 
-# Change Data Feed (CDF)
-
-Delta Lake Change Data Feed is used to identify records that changed between table versions.
-
-Instead of repeatedly processing the complete Silver dataset, CDF exposes relevant changes such as:
+Change types include:
 
 ```text
 insert
-
 update_preimage
-
 update_postimage
-
 delete
 ```
 
-This allows downstream processing to focus on changed records.
-
-Conceptually:
-
-```text
-Silver Delta Table
-       |
-       | Change Data Feed
-       v
-Changed Records Only
-       |
-       v
-Incremental Processing
-```
+This allows downstream processing to focus on changed records rather than repeatedly processing the full dataset.
 
 ---
 
 # Incremental Processing
 
-The pipeline implements incremental processing so downstream calculations do not require a complete rebuild every time source data changes.
-
-The general flow is:
+The Azure implementation uses Delta Change Data Feed and MERGE operations to demonstrate incremental processing.
 
 ```text
-Bronze
-   |
-   v
-Silver Delta
-   |
-   | CDF
-   v
-Changed Records
-   |
-   v
-Calculate Metric Deltas
-   |
-   v
-MERGE
-   |
-   v
-Gold
+Silver Delta Table
+         |
+         v
+   Change Data Feed
+         |
+         v
+   Changed Records
+         |
+         v
+  Calculate Metric Deltas
+         |
+         v
+       MERGE
+         |
+         v
+   Gold Delta Table
 ```
 
-This demonstrates an important production data-engineering pattern:
-
-> Process the data that changed rather than unnecessarily reprocessing the complete historical dataset.
+This approach reduces unnecessary full-table processing when only a subset of records has changed.
 
 ---
 
-# Gold Layer
+# Data Modelling and Dataset Grain
 
-The Gold layer contains business-ready analytical aggregates derived from Silver data.
-
-Gold models are designed for downstream reporting and analytical consumption rather than raw operational processing.
-
-One implemented Gold dataset provides daily delivered-order metrics.
-
-Its grain is:
-
-```text
-one row per order_date
-```
-
-Metrics include:
-
-* Total delivered orders
-* Total delivered value
-* Average delivered order value
-
-Conceptually:
-
-```text
-Silver Orders
-      |
-      | CDF
-      v
-Changed Orders
-      |
-      v
-Daily Metric Changes
-      |
-      v
-Gold Daily Metrics
-```
-
-Incremental Gold processing applies metric changes to existing Gold records using Delta `MERGE`.
-
-This allows inserts, updates, and relevant source changes to be reflected without rebuilding the complete Gold table.
-
----
-
-# Data Modelling and Grain
-
-Maintaining the correct dataset grain is an important design decision throughout the project.
+Maintaining the correct grain is an important design principle throughout the project.
 
 Examples:
 
-```text
-orders       → one row per order
+| Dataset | Grain |
+|---|---|
+| Orders | One row per order |
+| Order Items | One row per order item |
+| Payments | One row per payment record |
+| Gold Daily Metrics | One row per order date |
 
-order_items  → one row per order item
-
-Gold daily metrics → one row per order date
-```
-
-One-to-many datasets such as payments and order items are aggregated before being joined to order-level datasets.
-
-This prevents accidental row multiplication and incorrect business metrics.
+One-to-many datasets are aggregated before joining to order-level data to prevent accidental row multiplication.
 
 ---
 
 # Error Handling and Logging
 
-The local PySpark implementation uses structured logging to record:
+The local PySpark application includes logging and exception handling.
 
-* Ingestion activity
-* Data-quality warnings
-* Pipeline failures
-* Successful completion
+Logging covers:
 
-The main pipeline uses exception handling:
+- Pipeline execution
+- Data ingestion
+- Validation warnings
+- Processing failures
+- Successful completion
 
-```text
-try
-   |
-   v
-Execute pipeline
+Spark resources are stopped safely when execution finishes or fails.
 
-except
-   |
-   v
-Log failure
-   |
-   v
-Re-raise exception
-
-finally
-   |
-   v
-Stop Spark safely
-```
-
-This ensures Spark resources are cleaned up even when pipeline execution fails.
+The application separates critical failures from non-critical source anomalies.
 
 ---
 
 # Engineering Decisions
 
-## Explicit Schemas
+## Modular Design
 
-Spark schemas are explicitly defined instead of relying entirely on automatic schema inference.
+The pipeline separates ingestion, transformation, validation, curation, and writing into reusable modules.
 
-This provides greater control over expected source data types.
+This improves maintainability and testability.
 
----
+## Explicit Spark Schemas
 
-## Separation of Concerns
+Schemas are defined explicitly to improve control over input data types.
 
-The local implementation separates responsibilities across reusable modules:
+## Referential Integrity Checks
 
-```text
-ingestion.py       → reading data
-validation.py      → data-quality checks
-transformation.py  → row-level transformations
-curation.py        → aggregation and curated datasets
-writer.py          → output writing
-config.py          → configuration and paths
-main.py            → orchestration
-```
+Left anti joins are used to detect missing relationships between datasets.
 
-This makes the codebase easier to maintain, test, and extend.
+## Preserve Source Data
 
----
+Bronze layers preserve source-level data to support traceability and reprocessing.
 
-## Preserve Raw Data
+## Prevent Row Multiplication
 
-Bronze data is kept close to its source representation rather than performing destructive transformations immediately.
+One-to-many relationships are aggregated before joining to the intended analytical grain.
 
-Cleaning and business logic are applied downstream.
+## Automated Testing
 
-This makes source data easier to trace and reprocess.
+Transformation functions are tested independently using controlled input datasets.
 
----
+## Orchestration
 
-## Fail Fast on Critical Problems
+Apache Airflow manages pipeline execution instead of relying exclusively on manual commands.
 
-Structural issues such as unexpected duplicate business keys and broken referential relationships can invalidate downstream metrics.
+## Protected Main Branch
 
-These problems are therefore treated differently from non-critical source anomalies.
+GitHub repository rules and required CI checks reduce the risk of untested changes entering `main`.
+
+## Controlled Deployment
+
+Production approval and commit SHA verification add safeguards to the delivery process.
 
 ---
 
-## Delta Instead of Full Rewrites
+# Running the Project Locally
 
-Delta Lake provides transactional tables and supports incremental updates through `MERGE`.
+## Prerequisites
 
-This avoids unnecessary full-table rewrites when only a subset of records has changed.
+The local implementation requires:
 
----
+- Python
+- Java compatible with the installed PySpark version
+- PySpark
+- Git
+- Docker and Docker Compose for Airflow
+- The Olist source CSV files
 
-## Incremental Gold Processing
-
-Gold aggregates are updated from changes in Silver rather than rebuilding the complete analytical table after every source modification.
-
-This architecture is more representative of production data-engineering workloads where historical datasets can become too large to reprocess unnecessarily.
-
----
-
-# Local Pipeline Execution
-
-The original local implementation can be run independently.
-
-## 1. Clone the repository
+## 1. Clone the Repository
 
 ```bash
-git clone git@github.com:anishdhakal54/olist-pyspark-etl.git
+git clone https://github.com/anishdhakal54/olist-pyspark-etl.git
 cd olist-pyspark-etl
 ```
 
-## 2. Create a virtual environment
+## 2. Create a Virtual Environment
 
 ```bash
 python -m venv .venv
@@ -665,151 +967,149 @@ source .venv/bin/activate
 
 ## 3. Install Dependencies
 
-Install PySpark and the required Python dependencies.
+```bash
+pip install -r requirements.txt
+```
 
-## 4. Add Olist Data
+## 4. Prepare Source Data
 
-Place the source CSV files under:
+Place the required Olist CSV datasets in:
 
 ```text
 data/raw/
 ```
 
-## 5. Run the Pipeline
+## 5. Run the PySpark Pipeline
 
 ```bash
 python src/main.py
 ```
 
-The local curated outputs are written under:
+## 6. Run Automated Tests
 
-```text
-data/curated/
+```bash
+pytest
 ```
+
+## 7. Run Through Airflow
+
+The project also supports execution through its Docker-based Airflow environment.
+
+Start the configured Airflow services using the repository's Docker Compose configuration, then access the Airflow interface and trigger the local Olist pipeline DAG.
+
+The Airflow DAG executes the PySpark application from the configured project directory.
 
 ---
 
-# Project Evolution
+# Project Development Progress
 
-The project has progressed through several stages.
+| Stage | Status |
+|---|---|
+| Local PySpark ingestion | Completed |
+| Data validation and referential integrity | Completed |
+| Modular transformations | Completed |
+| Aggregation and curation | Completed |
+| Azure Data Lake Storage ingestion | Completed |
+| Azure Databricks processing | Completed |
+| Bronze / Silver / Gold | Completed |
+| Delta MERGE and schema management | Completed |
+| Delta time travel and restore | Completed |
+| Change Data Feed | Completed |
+| Incremental Gold processing | Completed |
+| Local Apache Airflow orchestration | Completed |
+| Docker-based Airflow environment | Completed |
+| Automated PySpark testing | Completed |
+| Airflow DAG testing | Completed |
+| GitHub Actions CI | Completed |
+| GitHub branch protection | Completed |
+| GitHub Actions CD simulation | Completed |
+| Production approval gate | Completed |
+| Commit SHA verification | Completed |
+| Automated Azure deployment | Planned |
+| Monitoring and alerting improvements | Planned |
 
-```text
-Stage 1
-Local PySpark ETL
-        |
-        v
-Stage 2
-Modular Validation + Transformation
-        |
-        v
-Stage 3
-Azure Data Lake Storage
-        |
-        v
-Stage 4
-Azure Databricks
-        |
-        v
-Stage 5
-Bronze / Silver / Gold
-        |
-        v
-Stage 6
-Delta Lake
-        |
-        v
-Stage 7
-MERGE + Schema Management
-        |
-        v
-Stage 8
-CDF + Incremental Processing
-        |
-        v
-Stage 9
-Incremental Gold Aggregations
-```
+---
 
-This progression demonstrates the evolution of the project from a local ETL application into a cloud-based lakehouse data pipeline.
+# Future Improvements
+
+## Azure Deployment Automation
+
+Extend GitHub Actions CD to deploy the tested pipeline code to Azure Databricks.
+
+Potential additions include:
+
+- Secure Azure authentication
+- Deployment credentials and permissions
+- Artifact packaging
+- Environment-specific configuration
+- Deployment verification
+- Rollback procedures
+
+## Secrets Management
+
+Introduce or strengthen secure handling of credentials using appropriate Azure identity and secret-management services.
+
+## Monitoring and Observability
+
+Improve operational visibility through:
+
+- Structured pipeline metrics
+- Failure alerts
+- Data quality monitoring
+- Execution duration tracking
+- Pipeline health reporting
+
+## dbt
+
+Explore dbt for SQL-based transformation modelling and testing.
+
+Potential topics include:
+
+- Models
+- Sources
+- `source()`
+- `ref()`
+- Data tests
+- Documentation
+
+## Additional CI/CD Improvements
+
+Future work may include:
+
+- Build artifact verification
+- Deployment smoke tests
+- Automated release packaging
+- Environment-specific configuration
+- Production rollback strategies
 
 ---
 
 # Key Learning Outcomes
 
-This project demonstrates practical experience with:
+This project demonstrates hands-on experience with:
 
-* Building end-to-end PySpark data pipelines
-* Working with multiple related datasets
-* Designing reusable ingestion and transformation logic
-* Defining explicit Spark schemas
-* Implementing data-quality validation
-* Performing referential-integrity checks
-* Understanding dataset grain
-* Handling one-to-many relationships safely
-* Performing Spark joins and aggregations
-* Using Azure Data Lake Storage Gen2
-* Processing cloud data with Azure Databricks
-* Designing Bronze, Silver, and Gold layers
-* Working with Delta Lake
-* Performing Delta `MERGE` operations
-* Understanding schema enforcement
-* Implementing controlled schema evolution
-* Inspecting Delta transaction history
-* Using Delta time travel
-* Restoring previous Delta versions
-* Working with Change Data Feed
-* Designing incremental pipelines
-* Incrementally maintaining Gold aggregates
-* Using Git and GitHub throughout project development
-
----
-
-# Current Development
-
-The core Azure Databricks pipeline is now implemented through the Gold layer.
-
-The next stage of the project focuses on improving transformation management, orchestration, testing, security, and deployment practices.
-
----
-
-# Planned Improvements
-
-The next development stages include:
-
-### dbt
-
-Introduce dbt for structured SQL-based transformation modelling, including:
-
-* Models
-* Sources
-* `source()`
-* `ref()`
-* Tests
-* Documentation
-* A small dbt implementation using the Olist pipeline
-
-### Apache Airflow
-
-Introduce orchestration to manage pipeline execution and dependencies.
-
-### Automated Testing and Data Quality
-
-Expand automated validation and testing across pipeline layers.
-
-### Security and Secrets Management
-
-Strengthen cloud security practices using:
-
-* Azure Managed Identity
-* Azure Key Vault / secret management
-
-### CI/CD
-
-Introduce automated validation and deployment workflows using Git and CI/CD practices.
-
-### Monitoring
-
-Add improved operational monitoring, pipeline metrics, and alerting.
+- Building modular PySpark ETL applications
+- Processing relational e-commerce datasets
+- Designing Bronze, Silver, and Gold architectures
+- Implementing data quality and referential integrity checks
+- Managing dataset grain
+- Performing Spark joins and aggregations
+- Building reusable transformation functions
+- Using Azure Databricks and ADLS Gen2
+- Working with Delta Lake transactional tables
+- Implementing Delta MERGE operations
+- Testing schema enforcement and evolution
+- Using Delta time travel and restore
+- Processing changes through Change Data Feed
+- Building incremental Gold aggregations
+- Orchestrating PySpark workloads using Apache Airflow
+- Running Airflow using Docker
+- Writing automated tests using pytest
+- Configuring GitHub Actions CI workflows
+- Protecting the main branch using required checks
+- Building a gated CD workflow
+- Verifying deployment commit integrity
+- Following feature-branch and Pull Request workflows
 
 ---
 
@@ -818,3 +1118,9 @@ Add improved operational monitoring, pipeline metrics, and alerting.
 **Anish Dhakal**
 
 Data Engineering Portfolio Project
+
+[GitHub](https://github.com/anishdhakal54) | [LinkedIn](https://www.linkedin.com/in/anish-dhakal54)
+
+---
+
+**Project Repository:** [olist-pyspark-etl](https://github.com/anishdhakal54/olist-pyspark-etl)
