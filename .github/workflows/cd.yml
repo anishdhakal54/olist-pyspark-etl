@@ -11,17 +11,46 @@ on:
 
 jobs:
   prepare-deployment:
-    if: ${{ github.event.workflow_run.conclusion =='success'}}
+    if: >-
+      ${{
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        github.event.workflow_run.head_branch == 'main'
+      }}
     runs-on: ubuntu-latest
     steps:
       - name: Confirm deployment preparation
         run: echo "CI passed. Prepare Olist deployment."
-  
+      
+
   deploy-production:
     needs: prepare-deployment
     runs-on: ubuntu-latest
     environment: production 
 
+
     steps:
+      - name: checkout tested commit 
+        uses: actions/checkout@v4
+        with: 
+          ref: ${{ github.event.workflow_run.head_sha}}  
+      - name: Verify checked-out commit
+        env:
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          actual=$(git rev-parse HEAD)
+          expected="$EXPECTED_SHA"
+          echo "Actual commit: $actual"
+          echo "Expected commit: $expected"
+
+          if [[ "$actual" != "$expected" ]]; then
+            echo "ERROR: Commit SHA mismatch!"
+            exit 1
+          fi
+
+          echo "Commit verification passed!"
+
+
       - name: Simulate production deployment
         run: echo "Deploying Olist pipeline to production."
+      
