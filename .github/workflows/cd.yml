@@ -16,3 +16,12 @@ jobs:
     steps:
       - name: Confirm deployment preparation
         run: echo "CI passed. Prepare Olist deployment."
+  
+  deploy-production:
+    needs: prepare-deployment
+    runs-on: ubuntu-latest
+    environment: production 
+
+    steps:
+      - name: Simulate production deployment
+        run: echo "Deploying Olist pipeline to production."
