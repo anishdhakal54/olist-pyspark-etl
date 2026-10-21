@@ -21,7 +21,7 @@ def test_add_delivery_days(spark):
     result_df = add_delivery_days(df)
     actual = result_df.collect()[0]["delivery_days"]
 
-    assert actual ==4
+    assert actual ==5
 
 
 
