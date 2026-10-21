@@ -57,3 +57,9 @@ jobs:
       
       - name: Run Airflow DAG tests
         run: python -m pytest -q tests/test_olist_dag.py
+  
+
+  pull_request:
+    branches:
+      - main
+  
