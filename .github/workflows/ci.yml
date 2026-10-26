@@ -31,7 +31,7 @@ jobs:
         run: pip install -r requirements.txt
         
       - name: Run tests
-        run: python -m pytest -q tests/test_transformation.py tests/test_validation.py
+        run: python -m pytest -q tests/test_transformation.py tests/test_validation.py tests/test_curation.py tests/test_pipeline_integration.py
 
 
   airflow-tests:
@@ -60,7 +60,7 @@ jobs:
 
       
       - name: Run Airflow DAG tests
-        run: python -m pytest -q tests/test_olist_dag.py
+        run: python -m pytest -q tests/test_olist_dag.py tests/test_olist_azure_dag.py
   
 
   
