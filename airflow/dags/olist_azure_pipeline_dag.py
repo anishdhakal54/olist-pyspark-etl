@@ -21,5 +21,5 @@ with DAG(
     trigger_databricks_pipeline = DatabricksRunNowOperator(
         task_id="trigger_databricks_pipeline",
         databricks_conn_id="databricks_default",
-        job_id=43510633667721
+        job_id=292467152131264
     )
