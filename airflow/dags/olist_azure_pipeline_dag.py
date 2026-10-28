@@ -3,7 +3,7 @@ from airflow import DAG
 from datetime import timedelta,datetime
 
 default_args= {
-    "retries":2,
+    "retries":0,
     "retry_delay":timedelta(minutes=2)
 }
 
