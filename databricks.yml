@@ -46,6 +46,7 @@ resources:
           new_cluster:
             spark_version: 18.x-scala2.13
             node_type_id: Standard_E4ads_v6
+            data_security_mode: DATA_SECURITY_MODE_STANDARD
             num_workers: 0
             spark_conf:
               spark.databricks.cluster.profile: singleNode
