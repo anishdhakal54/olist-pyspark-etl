@@ -1,0 +1,63 @@
+bundle:
+  name: olist-data-engineering
+
+variables:
+  storage_account:
+    default: stolistdev54
+  container:
+    default: olist
+
+resources:
+  jobs:
+    olist_etl_pipeline:
+      name: olist-etl-pipeline
+
+      tasks:
+        - task_key: bronze_ingestion
+          job_cluster_key: olist_cluster
+          notebook_task:
+            notebook_path: ./databricks/01_bronze_ingestion.py
+            base_parameters:
+              storage_account: ${var.storage_account}
+              container: ${var.container}
+
+        - task_key: silver_processing
+          depends_on:
+            - task_key: bronze_ingestion
+          job_cluster_key: olist_cluster
+          notebook_task:
+            notebook_path: ./databricks/02_silver_processing.py
+            base_parameters:
+              storage_account: ${var.storage_account}
+              container: ${var.container}
+
+        - task_key: gold_curation
+          depends_on:
+            - task_key: silver_processing
+          job_cluster_key: olist_cluster
+          notebook_task:
+            notebook_path: ./databricks/03_gold.py
+            base_parameters:
+              storage_account: ${var.storage_account}
+              container: ${var.container}
+
+      job_clusters:
+        - job_cluster_key: olist_cluster
+          new_cluster:
+            spark_version: 18.x-scala2.13
+            node_type_id: Standard_E4ads_v6
+            num_workers: 0
+            spark_conf:
+              spark.databricks.cluster.profile: singleNode
+              spark.master: local[*, 4]
+            custom_tags:
+              ResourceClass: SingleNode
+            runtime_engine: PHOTON
+
+targets:
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/anish.dhakal54@gmail.com/.bundle/${bundle.name}/${bundle.target}
+
+      
