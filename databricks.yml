@@ -6,6 +6,12 @@ variables:
     default: stolistdev54
   container:
     default: olist
+  task_max_retries:
+    default: 2
+
+  task_retry_interval_ms:
+    default: 120000
+  
 
 resources:
   jobs:
@@ -15,6 +21,8 @@ resources:
       tasks:
         - task_key: bronze_ingestion
           job_cluster_key: olist_cluster
+          max_retries: ${var.task_max_retries}
+          min_retry_interval_millis: ${var.task_retry_interval_ms}
           notebook_task:
             notebook_path: ./databricks/01_bronze_ingestion.py
             base_parameters:
@@ -25,6 +33,8 @@ resources:
           depends_on:
             - task_key: bronze_ingestion
           job_cluster_key: olist_cluster
+          max_retries: ${var.task_max_retries}
+          min_retry_interval_millis: ${var.task_retry_interval_ms}
           notebook_task:
             notebook_path: ./databricks/02_silver_processing.py
             base_parameters:
@@ -35,6 +45,8 @@ resources:
           depends_on:
             - task_key: silver_processing
           job_cluster_key: olist_cluster
+          max_retries: ${var.task_max_retries}
+          min_retry_interval_millis: ${var.task_retry_interval_ms}
           notebook_task:
             notebook_path: ./databricks/03_gold.py
             base_parameters:

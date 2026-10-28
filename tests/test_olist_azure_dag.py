@@ -22,5 +22,5 @@ def test_olist_dag_structure():
     assert isinstance(actual,DatabricksRunNowOperator)
     assert actual.databricks_conn_id == "databricks_default"
 
-    assert actual.retries == 2
+    assert actual.retries == 0
     assert actual.retry_delay == timedelta(minutes = 2)
