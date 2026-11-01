@@ -13,7 +13,7 @@ with DAG(
     default_args=default_args,
     description="Trigger the Olist ETL pipeline on Azure Databricks",
     start_date=datetime(2026,10,26),
-    schedule=None,
+    schedule="@daily",
     catchup=False,
     is_paused_upon_creation=True
     
@@ -21,5 +21,9 @@ with DAG(
     trigger_databricks_pipeline = DatabricksRunNowOperator(
         task_id="trigger_databricks_pipeline",
         databricks_conn_id="databricks_default",
-        job_id=292467152131264
+        job_id=292467152131264,
+        job_parameters={
+                            "processing_start": "{{ data_interval_start }}",
+                            "processing_end": "{{ data_interval_end }}"
+                }
     )

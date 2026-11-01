@@ -17,6 +17,12 @@ resources:
   jobs:
     olist_etl_pipeline:
       name: olist-etl-pipeline
+      parameters:
+        - name: processing_start
+          default: ""
+        - name: processing_end
+          default: ""
+
 
       tasks:
         - task_key: bronze_ingestion
@@ -28,6 +34,8 @@ resources:
             base_parameters:
               storage_account: ${var.storage_account}
               container: ${var.container}
+              processing_start: "{{job.parameters.processing_start}}"
+              processing_end: "{{job.parameters.processing_end}}"
 
         - task_key: silver_processing
           depends_on:

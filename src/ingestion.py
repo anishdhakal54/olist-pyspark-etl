@@ -1,6 +1,7 @@
 from pyspark.sql.types import ( StructType,StructField,StringType,IntegerType,DecimalType,TimestampType,DoubleType)
 import logging
 from src.config import RAW_PATH
+from pyspark.sql import functions as F
 
 order_schema = StructType([
 StructField("order_id",StringType()),
@@ -113,5 +114,25 @@ def ingest_olist_data(spark,raw_path_to_file,file_schema):
        raise
 
 # ingest_olist_data(spark=spark,raw_path_to_file="olist_orders_dataset.csv",file_schema=order_schema)
+
+
+def add_bronze_metadata(df, processing_start, processing_end):
+    df = (
+        df
+        .withColumn(
+            "_ingestion_timestamp",
+            F.current_timestamp()
+        )
+        .withColumn(
+            "_processing_start",
+            F.to_timestamp(F.lit(processing_start))
+        )
+        .withColumn(
+            "_processing_end",
+            F.to_timestamp(F.lit(processing_end))
+        )
+    )
+
+    return df
 
 logger = logging.getLogger(__name__)
