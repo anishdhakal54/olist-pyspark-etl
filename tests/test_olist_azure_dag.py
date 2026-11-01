@@ -21,6 +21,9 @@ def test_olist_dag_structure():
     assert actual.task_id=="trigger_databricks_pipeline"
     assert isinstance(actual,DatabricksRunNowOperator)
     assert actual.databricks_conn_id == "databricks_default"
+    assert actual.job_parameters["processing_start"] == "{{ data_interval_start }}"
+    assert actual.job_parameters["processing_end"] == "{{ data_interval_end }}"
 
     assert actual.retries == 0
     assert actual.retry_delay == timedelta(minutes = 2)
+    assert dag.timetable.expression == "0 0 * * *"

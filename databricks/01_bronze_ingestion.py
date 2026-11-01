@@ -14,14 +14,26 @@ from pyspark.sql import functions as F
 dbutils.widgets.text("storage_account", "")
 dbutils.widgets.text("container", "")
 
+dbutils.widgets.text("processing_start","")  
+dbutils.widgets.text("processing_end","")
+
 storage_account = dbutils.widgets.get("storage_account").strip()
 container = dbutils.widgets.get("container").strip()
+
+processing_start = dbutils.widgets.get("processing_start").strip()
+processing_end = dbutils.widgets.get("processing_end").strip()
 
 if not storage_account:
     raise ValueError("Missing required parameter: storage_account")
 
 if not container:
     raise ValueError("Missing required parameter: container")
+
+if not processing_start:
+    raise ValueError("Missing required parameter: processing_start")
+
+if not processing_end:
+    raise ValueError("Missing required parameter: processing_end")
 
 
 # ============================================================
@@ -86,7 +98,10 @@ for dataset_name, file_name in datasets.items():
         .withColumn(
             "_source_file",
             F.col("_metadata.file_path")
-        )
+        ).withColumn("_processing_start",
+                    F.to_timestamp( F.lit(processing_start)))
+        .withColumn("_processing_end",
+                    F.to_timestamp(F.lit(processing_end)))
     )
 
     bronze_data[dataset_name] = df
