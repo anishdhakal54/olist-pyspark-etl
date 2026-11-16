@@ -34,6 +34,12 @@ if not processing_start:
 if not processing_end:
     raise ValueError("Missing required parameter: processing_end")
 
+# Convert processing window start to the simulated arrival-date partition
+processing_date = processing_start[:10]
+
+print(f"Processing window: {processing_start} -> {processing_end}")
+print(f"Processing source date: {processing_date}")
+
 
 # ============================================================
 # ADLS PATHS
