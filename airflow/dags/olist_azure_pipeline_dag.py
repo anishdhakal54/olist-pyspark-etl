@@ -20,6 +20,6 @@ with DAG(
         job_id=292467152131264,
         job_parameters={
             "processing_start": "{{ data_interval_start }}",
-            "processing_end": "{{ data_interval_end }}",
+            "processing_end": "{{ data_interval_start.add(days=1) }}",
         },
     )
