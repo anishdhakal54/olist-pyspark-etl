@@ -61,10 +61,23 @@ def remove_metadata(df):
     return df.drop(*existing_columns)
 
 
+# Orders keep processing-window metadata because it is needed
+# to determine the latest version of each order.
 orders_df = remove_metadata(orders_df)
-order_items_df = remove_metadata(order_items_df)
-order_payments_df = remove_metadata(order_payments_df)
-customers_df = remove_metadata(customers_df)
+
+# Static reference/transaction datasets do not need
+# processing-window metadata in Silver.
+order_items_df = remove_metadata(order_items_df).drop(
+    "_processing_start", "_processing_end"
+)
+
+order_payments_df = remove_metadata(order_payments_df).drop(
+    "_processing_start", "_processing_end"
+)
+
+customers_df = remove_metadata(customers_df).drop(
+    "_processing_start", "_processing_end"
+)
 
 
 # ============================================================
