@@ -1,29 +1,25 @@
 from airflow.providers.databricks.operators.databricks import DatabricksRunNowOperator
 from airflow import DAG
-from datetime import timedelta,datetime
+from datetime import timedelta, datetime
 
-default_args= {
-    "retries":0,
-    "retry_delay":timedelta(minutes=2)
-}
+default_args = {"retries": 0, "retry_delay": timedelta(minutes=2)}
 
 
 with DAG(
-    dag_id= 'olist_azure_pipeline',
+    dag_id="olist_azure_pipeline",
     default_args=default_args,
     description="Trigger the Olist ETL pipeline on Azure Databricks",
-    start_date=datetime(2026,10,26),
+    start_date=datetime(2017, 11, 24),
     schedule="@daily",
     catchup=False,
-    is_paused_upon_creation=True
-    
+    is_paused_upon_creation=True,
 ) as dag:
     trigger_databricks_pipeline = DatabricksRunNowOperator(
         task_id="trigger_databricks_pipeline",
         databricks_conn_id="databricks_default",
         job_id=292467152131264,
         job_parameters={
-                            "processing_start": "{{ data_interval_start }}",
-                            "processing_end": "{{ data_interval_end }}"
-                }
+            "processing_start": "{{ data_interval_start }}",
+            "processing_end": "{{ data_interval_end }}",
+        },
     )
