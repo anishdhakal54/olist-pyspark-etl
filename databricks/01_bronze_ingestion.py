@@ -37,6 +37,12 @@ if not processing_end:
 # Convert processing window start to the simulated arrival-date partition
 processing_date = processing_start[:10]
 
+# Used by Delta replaceWhere to make each processing window idempotent
+replace_condition = (
+    f"_processing_start >= timestamp'{processing_start}' "
+    f"AND _processing_start < timestamp'{processing_end}'"
+)
+
 print(f"Processing window: {processing_start} -> {processing_end}")
 print(f"Processing source date: {processing_date}")
 
