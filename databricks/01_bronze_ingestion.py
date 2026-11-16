@@ -6,7 +6,6 @@
 
 from pyspark.sql import functions as F
 
-
 # ============================================================
 # PIPELINE CONFIGURATION
 # ============================================================
@@ -14,8 +13,8 @@ from pyspark.sql import functions as F
 dbutils.widgets.text("storage_account", "")
 dbutils.widgets.text("container", "")
 
-dbutils.widgets.text("processing_start","")  
-dbutils.widgets.text("processing_end","")
+dbutils.widgets.text("processing_start", "")
+dbutils.widgets.text("processing_end", "")
 
 storage_account = dbutils.widgets.get("storage_account").strip()
 container = dbutils.widgets.get("container").strip()
@@ -40,13 +39,11 @@ if not processing_end:
 # ADLS PATHS
 # ============================================================
 
-BASE_PATH = (
-    f"abfss://{container}@{storage_account}"
-    ".dfs.core.windows.net"
-)
+BASE_PATH = f"abfss://{container}@{storage_account}" ".dfs.core.windows.net"
 
 RAW_PATH = f"{BASE_PATH}/raw"
 BRONZE_PATH = f"{BASE_PATH}/bronze"
+SIMULATED_RAW_PATH = f"{BASE_PATH}/raw_simulated"
 
 
 # ============================================================
@@ -62,7 +59,7 @@ datasets = {
     "products": "olist_products_dataset.csv",
     "sellers": "olist_sellers_dataset.csv",
     "geolocation": "olist_geolocation_dataset.csv",
-    "category_translation": "product_category_name_translation.csv"
+    "category_translation": "product_category_name_translation.csv",
 }
 
 
@@ -74,34 +71,25 @@ bronze_data = {}
 
 for dataset_name, file_name in datasets.items():
 
-    source_path = f"{RAW_PATH}/{file_name}"
+    if dataset_name == "orders":
+        source_path = f"{SIMULATED_RAW_PATH}/orders/" f"arrival_date={processing_date}"
+    else:
+        source_path = f"{RAW_PATH}/{file_name}"
 
     df = (
-        spark.read
-        .format("csv")
+        spark.read.format("csv")
         .option("header", True)
         .option("inferSchema", True)
-        .option(
-            "multiLine",
-            True if dataset_name == "order_reviews" else False
-        )
+        .option("multiLine", True if dataset_name == "order_reviews" else False)
         .load(source_path)
     )
 
     # Add Bronze metadata
     df = (
-        df
-        .withColumn(
-            "_ingestion_timestamp",
-            F.current_timestamp()
-        )
-        .withColumn(
-            "_source_file",
-            F.col("_metadata.file_path")
-        ).withColumn("_processing_start",
-                    F.to_timestamp( F.lit(processing_start)))
-        .withColumn("_processing_end",
-                    F.to_timestamp(F.lit(processing_end)))
+        df.withColumn("_ingestion_timestamp", F.current_timestamp())
+        .withColumn("_source_file", F.col("_metadata.file_path"))
+        .withColumn("_processing_start", F.to_timestamp(F.lit(processing_start)))
+        .withColumn("_processing_end", F.to_timestamp(F.lit(processing_end)))
     )
 
     bronze_data[dataset_name] = df
@@ -113,22 +101,25 @@ for dataset_name, file_name in datasets.items():
 
 for dataset_name, df in bronze_data.items():
 
-    target_path = (
-        f"{BRONZE_PATH}/{dataset_name}"
-    )
+    target_path = f"{BRONZE_PATH}/{dataset_name}"
 
-    (
-        df.write
-        .format("delta")
-        .mode("overwrite")
-        .option("overwriteSchema", "true")
-        .save(target_path)
-    )
+    if dataset_name == "orders":
+        (
+            df.write.format("delta")
+            .mode("overwrite")
+            .option("replaceWhere", replace_condition)
+            .option("overwriteSchema", "true")
+            .save(target_path)
+        )
+    else:
+        (
+            df.write.format("delta")
+            .mode("overwrite")
+            .option("overwriteSchema", "true")
+            .save(target_path)
+        )
 
-    print(
-        f"Bronze dataset written: "
-        f"{dataset_name}"
-    )
+    print(f"Bronze dataset written: " f"{dataset_name}")
 
 
 # ============================================================
