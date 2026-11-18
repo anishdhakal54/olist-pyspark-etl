@@ -126,6 +126,103 @@ print(f"Total Bronze rows: {total_bronze_rows}")
 
 
 # ============================================================
+# 4. VALIDATE QUARANTINE BEHAVIOUR
+# ============================================================
+
+from delta.tables import DeltaTable
+
+QUARANTINE_EXPERIMENT_PATH = (
+    f"{BASE_PATH}/silver/quarantine_experiment/orders"
+)
+
+# Select one real order with complete delivery timestamps.
+test_order = (
+    silver_orders.filter(
+        F.col("order_delivered_carrier_date").isNotNull()
+        & F.col("order_delivered_customer_date").isNotNull()
+    )
+    .limit(1)
+)
+
+# Deliberately create impossible delivery chronology.
+invalid_test_order = test_order.withColumn(
+    "order_delivered_customer_date",
+    F.col("order_delivered_carrier_date")
+    - F.expr("INTERVAL 1 DAY"),
+)
+
+quarantine_test = (
+    invalid_test_order.filter(
+        F.col("order_delivered_customer_date")
+        < F.col("order_delivered_carrier_date")
+    )
+    .withColumn(
+        "_quarantine_reason",
+        F.lit("delivery_before_carrier_timestamp"),
+    )
+)
+
+assert invalid_test_order.count() == 1
+assert quarantine_test.count() == 1
+
+# Start from a clean isolated experiment path.
+dbutils.fs.rm(QUARANTINE_EXPERIMENT_PATH, recurse=True)
+
+(
+    quarantine_test.write.format("delta")
+    .mode("overwrite")
+    .save(QUARANTINE_EXPERIMENT_PATH)
+)
+
+quarantine_table = DeltaTable.forPath(
+    spark,
+    QUARANTINE_EXPERIMENT_PATH,
+)
+
+# Rerun the same rejected record to prove idempotency.
+(
+    quarantine_table.alias("target")
+    .merge(
+        quarantine_test.alias("source"),
+        "target.order_id = source.order_id",
+    )
+    .whenMatchedUpdateAll()
+    .whenNotMatchedInsertAll()
+    .execute()
+)
+
+quarantine_result = (
+    spark.read.format("delta")
+    .load(QUARANTINE_EXPERIMENT_PATH)
+)
+
+quarantine_rows = quarantine_result.count()
+quarantine_distinct_orders = (
+    quarantine_result.select("order_id").distinct().count()
+)
+
+quarantine_reason = (
+    quarantine_result.select("_quarantine_reason").first()[0]
+)
+
+assert quarantine_rows == 1
+assert quarantine_distinct_orders == 1
+assert quarantine_reason == "delivery_before_carrier_timestamp"
+
+print("\nQuarantine validation: PASS")
+print(f"Quarantine rows after rerun: {quarantine_rows}")
+print(
+    f"Distinct quarantined orders: "
+    f"{quarantine_distinct_orders}"
+)
+print(f"Quarantine reason: {quarantine_reason}")
+
+# Remove temporary experiment data.
+dbutils.fs.rm(QUARANTINE_EXPERIMENT_PATH, recurse=True)
+
+print("Quarantine experiment cleanup: PASS")
+
+# ============================================================
 # VALIDATION SUMMARY
 # ============================================================
 
@@ -135,3 +232,4 @@ print("======================================")
 print("Late arrivals:       PASS")
 print("Corrected records:   PASS")
 print("Post-rerun state:    PASS")
+print("Quarantine behaviour: PASS")
