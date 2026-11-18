@@ -15,15 +15,27 @@ from delta.tables import DeltaTable
 
 dbutils.widgets.text("storage_account", "")
 dbutils.widgets.text("container", "")
+dbutils.widgets.text("processing_start", "")
+dbutils.widgets.text("processing_end", "")
+
 
 storage_account = dbutils.widgets.get("storage_account").strip()
 container = dbutils.widgets.get("container").strip()
+
+processing_start = dbutils.widgets.get("processing_start").strip()
+processing_end = dbutils.widgets.get("processing_end").strip()
 
 if not storage_account:
     raise ValueError("Missing required parameter: storage_account")
 
 if not container:
     raise ValueError("Missing required parameter: container")
+
+if not processing_start:
+    raise ValueError("Missing required parameter: processing_start")
+
+if not processing_end:
+    raise ValueError("Missing required parameter: processing_end")
 
 
 BASE_PATH = f"abfss://{container}@{storage_account}" ".dfs.core.windows.net"
@@ -33,6 +45,7 @@ SILVER_PATH = f"{BASE_PATH}/silver"
 
 SILVER_ORDERS_PATH = f"{SILVER_PATH}/orders"
 QUARANTINE_ORDERS_PATH = f"{SILVER_PATH}/quarantine/orders"
+RUN_METRICS_PATH = f"{SILVER_PATH}/run_metrics"
 
 
 # ============================================================
@@ -40,6 +53,13 @@ QUARANTINE_ORDERS_PATH = f"{SILVER_PATH}/quarantine/orders"
 # ============================================================
 
 orders_df = spark.read.format("delta").load(f"{BRONZE_PATH}/orders")
+current_run_orders_df = orders_df.filter(
+    F.col("_processing_start") == F.to_timestamp(F.lit(processing_start))
+)
+
+current_run_input_count = current_run_orders_df.count()
+
+print(f"Current run input orders: {current_run_input_count}")
 
 order_items_df = spark.read.format("delta").load(f"{BRONZE_PATH}/order_items")
 
@@ -184,6 +204,30 @@ valid_silver_orders_df = silver_orders_df.filter(
     | col("order_delivered_carrier_date").isNull()
     | (col("order_delivered_customer_date") >= col("order_delivered_carrier_date"))
 )
+
+current_run_valid_silver_df = valid_silver_orders_df.filter(
+    F.col("_processing_start") == F.to_timestamp(F.lit(processing_start))
+)
+
+current_run_silver_count = current_run_valid_silver_df.count()
+
+current_run_quarantine_df = quarantine_orders_df.filter(
+    F.col("_processing_start") == F.to_timestamp(F.lit(processing_start))
+)
+
+current_run_quarantine_count = current_run_quarantine_df.count()
+
+current_run_quarantine_rate = (
+    current_run_quarantine_count / current_run_input_count
+    if current_run_input_count > 0
+    else 0.0
+)
+
+print(f"Current run quarantined orders: {current_run_quarantine_count}")
+print(f"Current run quarantine rate: {current_run_quarantine_rate:.2%}")
+
+print(f"Current run accepted Silver orders: {current_run_silver_count}")
+
 
 valid_order_statuses = [
     "created",
@@ -400,6 +444,37 @@ if final_invalid_delivery_count > 0:
         f"{final_invalid_delivery_count} quarantined records "
         f"remain in Silver."
     )
+
+
+# ============================================================
+# 16. WRITE PIPELINE RUN METRICS
+# ============================================================
+
+run_metrics_df = spark.createDataFrame(
+    [
+        (
+            processing_start,
+            processing_end,
+            current_run_input_count,
+            current_run_silver_count,
+            current_run_quarantine_count,
+            current_run_quarantine_rate,
+        )
+    ],
+    [
+        "processing_start",
+        "processing_end",
+        "input_orders",
+        "silver_orders",
+        "quarantined_orders",
+        "quarantine_rate",
+    ],
+).withColumn(
+    "recorded_at",
+    F.current_timestamp(),
+)
+
+(run_metrics_df.write.format("delta").mode("append").save(RUN_METRICS_PATH))
 
 print("=" * 50)
 
