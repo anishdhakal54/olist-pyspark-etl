@@ -35,7 +35,6 @@ resources:
             base_parameters:
               storage_account: ${var.storage_account}
               container: ${var.container}
-
       job_clusters:
         - job_cluster_key: source_prep_cluster
           new_cluster:
@@ -110,6 +109,8 @@ resources:
             base_parameters:
               storage_account: ${var.storage_account}
               container: ${var.container}
+              processing_start: "{{job.parameters.processing_start}}"
+              processing_end: "{{job.parameters.processing_end}}"
 
 
         # ----------------------------------------------------
