@@ -32,6 +32,7 @@ BRONZE_PATH = f"{BASE_PATH}/bronze"
 SILVER_PATH = f"{BASE_PATH}/silver"
 
 SILVER_ORDERS_PATH = f"{SILVER_PATH}/orders"
+QUARANTINE_ORDERS_PATH = f"{SILVER_PATH}/quarantine/orders"
 
 
 # ============================================================
@@ -172,6 +173,17 @@ invalid_delivery_dates_df = silver_orders_df.filter(
     col("order_delivered_customer_date") < col("order_delivered_carrier_date")
 )
 
+# Records with impossible delivery chronology are quarantined
+# rather than written to the accepted Silver dataset.
+quarantine_orders_df = invalid_delivery_dates_df.withColumn(
+    "_quarantine_reason", F.lit("delivery_before_carrier_timestamp")
+)
+
+valid_silver_orders_df = silver_orders_df.filter(
+    col("order_delivered_customer_date").isNull()
+    | col("order_delivered_carrier_date").isNull()
+    | (col("order_delivered_customer_date") >= col("order_delivered_carrier_date"))
+)
 
 valid_order_statuses = [
     "created",
@@ -204,6 +216,12 @@ invalid_delivery_count = invalid_delivery_dates_df.count()
 
 invalid_status_count = invalid_status_df.count()
 
+total_order_count = silver_orders_df.count()
+quarantine_count = quarantine_orders_df.count()
+
+quarantine_rate = quarantine_count / total_order_count if total_order_count > 0 else 0.0
+
+QUARANTINE_RATE_THRESHOLD = 0.05
 
 print("Silver validation results")
 print("=" * 50)
@@ -220,6 +238,9 @@ print(f"Invalid order statuses: " f"{invalid_status_count}")
 
 print("=" * 50)
 
+print(f"Quarantined orders: {quarantine_count}")
+print(f"Quarantine rate: {quarantine_rate:.2%}")
+print(f"Quarantine threshold: {QUARANTINE_RATE_THRESHOLD:.2%}")
 
 # ============================================================
 # 11. VALIDATION GATE
@@ -271,16 +292,66 @@ if invalid_delivery_count > 0:
 
 
 # ============================================================
-# 12. WRITE / MERGE SILVER DELTA TABLE
+# 12. WRITE QUARANTINED RECORDS
+# ============================================================
+if quarantine_count > 0:
+
+    if DeltaTable.isDeltaTable(spark, QUARANTINE_ORDERS_PATH):
+
+        quarantine_table = DeltaTable.forPath(spark, QUARANTINE_ORDERS_PATH)
+
+        (
+            quarantine_table.alias("target")
+            .merge(
+                quarantine_orders_df.alias("source"),
+                "target.order_id = source.order_id",
+            )
+            .whenMatchedUpdateAll()
+            .whenNotMatchedInsertAll()
+            .execute()
+        )
+
+    else:
+
+        (
+            quarantine_orders_df.write.format("delta")
+            .mode("overwrite")
+            .save(QUARANTINE_ORDERS_PATH)
+        )
+
+    print(f"Quarantined {quarantine_count} invalid " "orders successfully.")
+
+if quarantine_rate > QUARANTINE_RATE_THRESHOLD:
+
+    raise ValueError(
+        f"Silver validation failed: quarantine rate "
+        f"{quarantine_rate:.2%} exceeds threshold "
+        f"{QUARANTINE_RATE_THRESHOLD:.2%}."
+    )
+# ============================================================
+# 13. WRITE / MERGE SILVER DELTA TABLE
 # ============================================================
 
 if DeltaTable.isDeltaTable(spark, SILVER_ORDERS_PATH):
-
     silver_orders_table = DeltaTable.forPath(spark, SILVER_ORDERS_PATH)
+
+    if quarantine_count > 0:
+
+        (
+            silver_orders_table.alias("target")
+            .merge(
+                quarantine_orders_df.select("order_id").alias("source"),
+                "target.order_id = source.order_id",
+            )
+            .whenMatchedDelete()
+            .execute()
+        )
 
     (
         silver_orders_table.alias("target")
-        .merge(silver_orders_df.alias("source"), "target.order_id = source.order_id")
+        .merge(
+            valid_silver_orders_df.alias("source"), "target.order_id = source.order_id"
+        )
         .whenMatchedUpdateAll()
         .whenNotMatchedInsertAll()
         .execute()
@@ -290,13 +361,16 @@ if DeltaTable.isDeltaTable(spark, SILVER_ORDERS_PATH):
 
 else:
 
-    (silver_orders_df.write.format("delta").mode("overwrite").save(SILVER_ORDERS_PATH))
-
+    (
+        valid_silver_orders_df.write.format("delta")
+        .mode("overwrite")
+        .save(SILVER_ORDERS_PATH)
+    )
     print("Silver orders Delta table " "created successfully.")
 
 
 # ============================================================
-# 13. ENABLE CHANGE DATA FEED
+# 14. ENABLE CHANGE DATA FEED
 # ============================================================
 
 spark.sql(f"""
@@ -308,7 +382,7 @@ spark.sql(f"""
 
 
 # ============================================================
-# 14. FINAL VALIDATION
+# 15. FINAL VALIDATION
 # ============================================================
 
 final_silver_df = spark.read.format("delta").load(SILVER_ORDERS_PATH)
@@ -316,6 +390,16 @@ final_silver_df = spark.read.format("delta").load(SILVER_ORDERS_PATH)
 
 final_count = final_silver_df.count()
 
+final_invalid_delivery_count = final_silver_df.filter(
+    col("order_delivered_customer_date") < col("order_delivered_carrier_date")
+).count()
+
+if final_invalid_delivery_count > 0:
+    raise ValueError(
+        f"Final Silver validation failed: "
+        f"{final_invalid_delivery_count} quarantined records "
+        f"remain in Silver."
+    )
 
 print("=" * 50)
 
