@@ -131,35 +131,25 @@ print(f"Total Bronze rows: {total_bronze_rows}")
 
 from delta.tables import DeltaTable
 
-QUARANTINE_EXPERIMENT_PATH = (
-    f"{BASE_PATH}/silver/quarantine_experiment/orders"
-)
+QUARANTINE_EXPERIMENT_PATH = f"{BASE_PATH}/silver/quarantine_experiment/orders"
 
 # Select one real order with complete delivery timestamps.
-test_order = (
-    silver_orders.filter(
-        F.col("order_delivered_carrier_date").isNotNull()
-        & F.col("order_delivered_customer_date").isNotNull()
-    )
-    .limit(1)
-)
+test_order = silver_orders.filter(
+    F.col("order_delivered_carrier_date").isNotNull()
+    & F.col("order_delivered_customer_date").isNotNull()
+).limit(1)
 
 # Deliberately create impossible delivery chronology.
 invalid_test_order = test_order.withColumn(
     "order_delivered_customer_date",
-    F.col("order_delivered_carrier_date")
-    - F.expr("INTERVAL 1 DAY"),
+    F.col("order_delivered_carrier_date") - F.expr("INTERVAL 1 DAY"),
 )
 
-quarantine_test = (
-    invalid_test_order.filter(
-        F.col("order_delivered_customer_date")
-        < F.col("order_delivered_carrier_date")
-    )
-    .withColumn(
-        "_quarantine_reason",
-        F.lit("delivery_before_carrier_timestamp"),
-    )
+quarantine_test = invalid_test_order.filter(
+    F.col("order_delivered_customer_date") < F.col("order_delivered_carrier_date")
+).withColumn(
+    "_quarantine_reason",
+    F.lit("delivery_before_carrier_timestamp"),
 )
 
 assert invalid_test_order.count() == 1
@@ -191,19 +181,12 @@ quarantine_table = DeltaTable.forPath(
     .execute()
 )
 
-quarantine_result = (
-    spark.read.format("delta")
-    .load(QUARANTINE_EXPERIMENT_PATH)
-)
+quarantine_result = spark.read.format("delta").load(QUARANTINE_EXPERIMENT_PATH)
 
 quarantine_rows = quarantine_result.count()
-quarantine_distinct_orders = (
-    quarantine_result.select("order_id").distinct().count()
-)
+quarantine_distinct_orders = quarantine_result.select("order_id").distinct().count()
 
-quarantine_reason = (
-    quarantine_result.select("_quarantine_reason").first()[0]
-)
+quarantine_reason = quarantine_result.select("_quarantine_reason").first()[0]
 
 assert quarantine_rows == 1
 assert quarantine_distinct_orders == 1
@@ -211,16 +194,134 @@ assert quarantine_reason == "delivery_before_carrier_timestamp"
 
 print("\nQuarantine validation: PASS")
 print(f"Quarantine rows after rerun: {quarantine_rows}")
-print(
-    f"Distinct quarantined orders: "
-    f"{quarantine_distinct_orders}"
-)
+print(f"Distinct quarantined orders: " f"{quarantine_distinct_orders}")
 print(f"Quarantine reason: {quarantine_reason}")
 
 # Remove temporary experiment data.
 dbutils.fs.rm(QUARANTINE_EXPERIMENT_PATH, recurse=True)
 
 print("Quarantine experiment cleanup: PASS")
+
+# ============================================================
+# 5. VALIDATE GOLD CURRENT-STATE REBUILD
+# ============================================================
+
+GOLD_EXPERIMENT_PATH = f"{BASE_PATH}/gold/gold_rebuild_experiment/daily_sales"
+
+
+def build_gold(source_df):
+    return (
+        source_df.filter(F.col("order_status") == "delivered")
+        .withColumn(
+            "order_date",
+            F.to_date("order_purchase_timestamp"),
+        )
+        .groupBy("order_date")
+        .agg(
+            F.countDistinct("order_id").alias("total_delivered_orders"),
+            F.sum("total_payment_value").alias("total_delivered_value"),
+        )
+        .withColumn(
+            "avg_delivered_order_value",
+            F.when(
+                F.col("total_delivered_orders") > 0,
+                F.col("total_delivered_value") / F.col("total_delivered_orders"),
+            ).otherwise(F.lit(0.0)),
+        )
+    )
+
+
+# Select one delivered order to use as isolated test data.
+gold_test_order = silver_orders.filter(F.col("order_status") == "delivered").limit(1)
+
+assert gold_test_order.count() == 1
+
+original_order_date = gold_test_order.select(
+    F.to_date("order_purchase_timestamp")
+).first()[0]
+
+
+# ------------------------------------------------------------
+# Test 1: initial delivered order creates a Gold aggregate
+# ------------------------------------------------------------
+
+dbutils.fs.rm(GOLD_EXPERIMENT_PATH, recurse=True)
+
+initial_gold = build_gold(gold_test_order)
+
+(initial_gold.write.format("delta").mode("overwrite").save(GOLD_EXPERIMENT_PATH))
+
+initial_result = spark.read.format("delta").load(GOLD_EXPERIMENT_PATH)
+
+assert initial_result.count() == 1
+assert initial_result.first()["total_delivered_orders"] == 1
+
+print("\nGold initial state validation: PASS")
+
+
+# ------------------------------------------------------------
+# Test 2: delivered -> canceled removes stale Gold aggregate
+# ------------------------------------------------------------
+
+canceled_order = gold_test_order.withColumn(
+    "order_status",
+    F.lit("canceled"),
+)
+
+canceled_gold = build_gold(canceled_order)
+
+(
+    canceled_gold.write.format("delta")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")
+    .save(GOLD_EXPERIMENT_PATH)
+)
+
+canceled_result = spark.read.format("delta").load(GOLD_EXPERIMENT_PATH)
+
+assert canceled_result.count() == 0
+
+print("Gold delivered -> canceled validation: PASS")
+
+
+# ------------------------------------------------------------
+# Test 3: changing business date removes old aggregate
+# and creates the new aggregate
+# ------------------------------------------------------------
+
+moved_order = gold_test_order.withColumn(
+    "order_purchase_timestamp",
+    F.col("order_purchase_timestamp") + F.expr("INTERVAL 1 DAY"),
+)
+
+new_order_date = moved_order.select(F.to_date("order_purchase_timestamp")).first()[0]
+
+moved_gold = build_gold(moved_order)
+
+(
+    moved_gold.write.format("delta")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")
+    .save(GOLD_EXPERIMENT_PATH)
+)
+
+moved_result = spark.read.format("delta").load(GOLD_EXPERIMENT_PATH)
+
+assert moved_result.count() == 1
+
+assert (
+    moved_result.filter(F.col("order_date") == F.lit(original_order_date)).count() == 0
+)
+
+assert moved_result.filter(F.col("order_date") == F.lit(new_order_date)).count() == 1
+
+print("Gold business-date correction validation: PASS")
+
+
+# Remove temporary Gold experiment data.
+dbutils.fs.rm(GOLD_EXPERIMENT_PATH, recurse=True)
+
+print("Gold rebuild experiment cleanup: PASS")
 
 # ============================================================
 # VALIDATION SUMMARY
@@ -233,3 +334,4 @@ print("Late arrivals:       PASS")
 print("Corrected records:   PASS")
 print("Post-rerun state:    PASS")
 print("Quarantine behaviour: PASS")
+print("Gold current-state rebuild: PASS")
