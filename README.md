@@ -556,7 +556,7 @@ UPDATE    INSERT
 
 ### Change Data Feed
 
-CDF is enabled on Silver to expose row-level changes for downstream incremental processing.
+CDF is enabled on Silver to expose row-level changes for potential downstream incremental consumers. The current Gold layer does not consume CDF; it rebuilds from the complete accepted Silver state so corrections, status changes, and removed aggregate keys are reflected deterministically.
 
 ### Table History
 
