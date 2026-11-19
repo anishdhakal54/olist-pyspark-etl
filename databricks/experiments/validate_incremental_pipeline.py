@@ -1,6 +1,7 @@
 # Databricks notebook source
 
 from pyspark.sql import functions as F
+from delta.tables import DeltaTable
 
 # ============================================================
 # CONFIGURATION
@@ -84,6 +85,7 @@ silver_result = silver_version.select(
 ).first()
 
 assert str(silver_result.order_estimated_delivery_date) == "2017-12-20 00:00:00"
+
 assert str(silver_result._processing_start) == "2017-11-28 00:00:00"
 
 print("\nCorrected-order validation: PASS")
@@ -129,15 +131,20 @@ print(f"Total Bronze rows: {total_bronze_rows}")
 # 4. VALIDATE QUARANTINE BEHAVIOUR
 # ============================================================
 
-from delta.tables import DeltaTable
-
 QUARANTINE_EXPERIMENT_PATH = f"{BASE_PATH}/silver/quarantine_experiment/orders"
 
 # Select one real order with complete delivery timestamps.
-test_order = silver_orders.filter(
-    F.col("order_delivered_carrier_date").isNotNull()
-    & F.col("order_delivered_customer_date").isNotNull()
-).limit(1)
+test_order = (
+    silver_orders.filter(
+        F.col("order_delivered_carrier_date").isNotNull()
+        & F.col("order_delivered_customer_date").isNotNull()
+    )
+    .orderBy("order_id")
+    .limit(1)
+    .cache()
+)
+
+assert test_order.count() == 1
 
 # Deliberately create impossible delivery chronology.
 invalid_test_order = test_order.withColumn(
@@ -185,7 +192,6 @@ quarantine_result = spark.read.format("delta").load(QUARANTINE_EXPERIMENT_PATH)
 
 quarantine_rows = quarantine_result.count()
 quarantine_distinct_orders = quarantine_result.select("order_id").distinct().count()
-
 quarantine_reason = quarantine_result.select("_quarantine_reason").first()[0]
 
 assert quarantine_rows == 1
@@ -197,10 +203,13 @@ print(f"Quarantine rows after rerun: {quarantine_rows}")
 print(f"Distinct quarantined orders: " f"{quarantine_distinct_orders}")
 print(f"Quarantine reason: {quarantine_reason}")
 
+test_order.unpersist()
+
 # Remove temporary experiment data.
 dbutils.fs.rm(QUARANTINE_EXPERIMENT_PATH, recurse=True)
 
 print("Quarantine experiment cleanup: PASS")
+
 
 # ============================================================
 # 5. VALIDATE GOLD CURRENT-STATE REBUILD
@@ -231,8 +240,17 @@ def build_gold(source_df):
     )
 
 
-# Select one delivered order to use as isolated test data.
-gold_test_order = silver_orders.filter(F.col("order_status") == "delivered").limit(1)
+# Select one deterministic delivered order and materialize it.
+#
+# Spark DataFrames are unordered and lazily evaluated. Using
+# limit(1) by itself could select a different row during separate
+# actions. Ordering and caching keeps this experiment stable.
+gold_test_order = (
+    silver_orders.filter(F.col("order_status") == "delivered")
+    .orderBy("order_id")
+    .limit(1)
+    .cache()
+)
 
 assert gold_test_order.count() == 1
 
@@ -317,11 +335,13 @@ assert moved_result.filter(F.col("order_date") == F.lit(new_order_date)).count()
 
 print("Gold business-date correction validation: PASS")
 
+gold_test_order.unpersist()
 
 # Remove temporary Gold experiment data.
 dbutils.fs.rm(GOLD_EXPERIMENT_PATH, recurse=True)
 
 print("Gold rebuild experiment cleanup: PASS")
+
 
 # ============================================================
 # VALIDATION SUMMARY
@@ -330,8 +350,8 @@ print("Gold rebuild experiment cleanup: PASS")
 print("\n======================================")
 print("INCREMENTAL PIPELINE VALIDATION: PASS")
 print("======================================")
-print("Late arrivals:       PASS")
-print("Corrected records:   PASS")
-print("Post-rerun state:    PASS")
+print("Late arrivals:        PASS")
+print("Corrected records:    PASS")
+print("Post-rerun state:     PASS")
 print("Quarantine behaviour: PASS")
 print("Gold current-state rebuild: PASS")
